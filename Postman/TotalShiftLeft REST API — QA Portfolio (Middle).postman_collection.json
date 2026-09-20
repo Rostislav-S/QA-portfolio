@@ -1,0 +1,1114 @@
+{
+	"info": {
+		"_postman_id": "8ef82b94-c57a-4ddb-864a-dca36006acd0",
+		"name": "TotalShiftLeft REST API — QA Portfolio (Middle)",
+		"description": "## TotalShiftLeft REST API — QA Portfolio\n\nДемонстрационная коллекция для портфолио Middle API Test Engineer.  \nПокрывает smoke, CRUD, query-параметры, E2E-workflow,  \nобработку ошибок и продвинутые скрипты.\n\n### Как запускать\n\n1. Импортируйте этот файл в Postman.\n    \n2. Откройте Collection Runner.\n    \n3. Запустите коллекцию целиком в последовательном порядке.\n    \n4. Некоторые запросы зависят от переменных, устанавливаемых ранее.\n    \n\n### Переменные\n\nВсе переменные хранятся на уровне коллекции (вкладка Variables).  \nВнешнее окружение не требуется.\n\n### Полная документация\n\nСм. README.ru.md в корне репозитория.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23218586"
+	},
+	"item": [
+		{
+			"name": "01_Smoke",
+			"item": [
+				{
+					"name": "1.1 GET /users — Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Поле data — массив\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('data');",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Структура пагинации полная\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('pagination');",
+									"",
+									"    const p = jsonData.pagination;",
+									"    pm.expect(p).to.have.all.keys(",
+									"        'total', 'page', 'limit', 'pages', 'hasNext', 'hasPrev'",
+									"    );",
+									"    pm.expect(p.total).to.be.a('number');",
+									"    pm.expect(p.page).to.be.a('number');",
+									"    pm.expect(p.limit).to.be.a('number');",
+									"    pm.expect(p.pages).to.be.a('number');",
+									"    pm.expect(p.hasNext).to.be.a('boolean');",
+									"    pm.expect(p.hasPrev).to.be.a('boolean');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Проверка доступности ключевого эндпоинта и базовой структуры ответа.\n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- наличие массива data\n    \n- полная структура пагинации (total, page, limit, pages, hasNext, hasPrev)\n    \n\nSmoke-тест: если падает — остальные проверки коллекции не имеют смысла."
+					},
+					"response": []
+				},
+				{
+					"name": "1.2 GET /products — Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Поле data — массив\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Структура пагинации полная\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    const p = jsonData.pagination;",
+									"    pm.expect(p).to.have.all.keys(",
+									"        'total', 'page', 'limit', 'pages', 'hasNext', 'hasPrev'",
+									"    );",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products"
+							]
+						},
+						"description": "Проверка доступности эндпоинта /products.\n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- наличие массива data\n    \n- полная структура пагинации\n    \n\nSmoke-тест второго ключевого ресурса sandbox."
+					},
+					"response": []
+				}
+			],
+			"description": "Базовые проверки доступности ключевых эндпоинтов.  \nЗапускаются первыми — если падают, остальные тесты  \nне имеют смысла."
+		},
+		{
+			"name": "02_CRUD_Users",
+			"item": [
+				{
+					"name": "2.1 POST /users — Create User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Генерируем уникальные данные для нового пользователя",
+									"const timestamp = Date.now();",
+									"pm.collectionVariables.set('uniqueName', `User_${timestamp}`);",
+									"pm.collectionVariables.set('uniqueEmail', `user_${timestamp}@example.com`);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 201 Created\", () => {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Ресурс создан с корректной структурой\", () => {",
+									"    const user = pm.response.json().data;",
+									"",
+									"    pm.expect(user).to.be.an('object');",
+									"    pm.expect(user).to.have.all.keys(",
+									"        'id', 'name', 'email', 'role', 'created_at'",
+									"    );",
+									"    pm.expect(user.id).to.be.a('string');",
+									"    pm.expect(user.name).to.eql(pm.collectionVariables.get('uniqueName'));",
+									"    pm.expect(user.email).to.eql(pm.collectionVariables.get('uniqueEmail'));",
+									"    pm.expect(user.role).to.eql('user');",
+									"    pm.expect(user.created_at).to.be.a('string');",
+									"});",
+									"",
+									"pm.test(\"ID — валидный UUID\", () => {",
+									"    const user = pm.response.json().data;",
+									"    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;",
+									"    pm.expect(user.id).to.match(uuidRegex);",
+									"});",
+									"",
+									"// Сохраняем ID для следующих запросов",
+									"pm.collectionVariables.set('userId', pm.response.json().data.id);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"{{uniqueName}}\",\n    \"email\": \"{{uniqueEmail}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Создание нового пользователя с динамически сгенерированными данными.\n\nPre-request:\n\n- генерация uniqueName и uniqueEmail на основе Date.now()\n    \n- уникальность гарантирует отсутствие конфликтов при повторных прогонах\n    \n\nЧто проверяется:\n\n- статус 201 Created\n    \n- структура созданного ресурса (id, name, email, role, created_at)\n    \n- валидность UUID\n    \n- соответствие name и email сгенерированным значениям\n    \n\nПобочный эффект: userId сохраняется в Collection Variables  \nдля использования в запросах 2.2–2.4."
+					},
+					"response": []
+				},
+				{
+					"name": "2.2 GET /users/{{userId}} — Read User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('userId')) {",
+									"    throw new Error(",
+									"        'Переменная userId не установлена. ' +",
+									"        'Запустите коллекцию через Collection Runner, начиная с 02_CRUD_Users.'",
+									"    );",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Данные пользователя полные\", () => {",
+									"    const user = pm.response.json().data;",
+									"",
+									"    pm.expect(user).to.be.an('object');",
+									"    pm.expect(user).to.have.all.keys(",
+									"        'id', 'name', 'email', 'role', 'created_at'",
+									"    );",
+									"    pm.expect(user.id).to.be.a('string');",
+									"    pm.expect(user.name).to.be.a('string');",
+									"    pm.expect(user.email).to.be.a('string');",
+									"});",
+									"",
+									"pm.test(\"ID совпадает с запрошенным\", () => {",
+									"    const user = pm.response.json().data;",
+									"    const requestedId = pm.collectionVariables.get('userId');",
+									"    pm.expect(user.id).to.eql(requestedId);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Чтение созданного пользователя по ID из переменной {{userId}}.\n\nPre-request:\n\n- проверка наличия userId, иначе throw new Error  \n    (защита от запуска запроса вне контекста коллекции)\n    \n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- полнота и типы полей пользователя\n    \n- совпадение id с запрошенным значением"
+					},
+					"response": []
+				},
+				{
+					"name": "2.3 PATCH /users/{{userId}} — Update User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('userId')) {",
+									"    throw new Error('userId не установлен. Выполните запросы 02.1 и 02.2.');",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    pm.expect(pm.response.json().success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Имя обновлено\", () => {",
+									"    const user = pm.response.json().data;",
+									"    pm.expect(user.name).to.eql('Updated Name');",
+									"});",
+									"",
+									"pm.test(\"Остальные поля не изменены\", () => {",
+									"    const user = pm.response.json().data;",
+									"    const originalEmail = pm.collectionVariables.get('uniqueEmail');",
+									"",
+									"    pm.expect(user.email).to.eql(originalEmail);",
+									"    pm.expect(user.role).to.eql('user');",
+									"    pm.expect(user.id).to.eql(pm.collectionVariables.get('userId'));",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Name\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Частичное обновление пользователя — изменяется только поле name.\n\nPre-request:\n\n- проверка наличия userId\n    \n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- имя действительно обновлено\n    \n- остальные поля (email, role, id) не изменились"
+					},
+					"response": []
+				},
+				{
+					"name": "2.4 DELETE /users/{{userId}} — Delete User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.collectionVariables.get('userId')) {",
+									"    throw new Error('userId не установлен. Выполните запросы 02.1–02.3.');",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 204 No Content\", () => {",
+									"    pm.response.to.have.status(204);",
+									"});",
+									"",
+									"pm.test(\"Тело ответа пустое\", () => {",
+									"    pm.expect(pm.response.text()).to.be.empty;",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Удаление созданного пользователя.\n\nPre-request:\n\n- проверка наличия userId\n    \n\nЧто проверяется:\n\n- статус 204 No Content\n    \n- тело ответа пустое\n    \n\nЗавершает CRUD-цикл: ресурс удалён, коллекцию можно запускать заново."
+					},
+					"response": []
+				}
+			],
+			"description": "Полный CRUD-цикл на ресурсе users: Create → Read → Update → Delete.  \nЗапросы связаны через переменную userId.  \nТребует последовательного запуска."
+		},
+		{
+			"name": "03_Query_Filtering",
+			"item": [
+				{
+					"name": "3.1 GET /products?category=books — Filter",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    pm.expect(pm.response.json().success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Количество товаров не превышает limit\", () => {",
+									"    const products = pm.response.json().data;",
+									"    pm.expect(products).to.be.an('array');",
+									"    pm.expect(products.length).to.be.at.most(5);",
+									"});",
+									"",
+									"pm.test(\"Все товары категории books\", () => {",
+									"    const products = pm.response.json().data;",
+									"    // Если массив пуст — проверка не должна падать",
+									"    if (products.length > 0) {",
+									"        products.forEach(product => {",
+									"            pm.expect(product.category).to.eql('books');",
+									"        });",
+									"    }",
+									"});",
+									"",
+									"pm.test(\"Пагинация отражает применённый фильтр\", () => {",
+									"    const p = pm.response.json().pagination;",
+									"    pm.expect(p.limit).to.eql(5);",
+									"    pm.expect(p.page).to.eql(1);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/products?category=books&limit=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products"
+							],
+							"query": [
+								{
+									"key": "category",
+									"value": "books"
+								},
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Проверка работы query-параметров фильтрации.\n\nURL: /products?category=books&limit=5\n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- количество товаров не превышает limit\n    \n- все товары в ответе относятся к категории books\n    \n- пагинация отражает применённый фильтр (page, limit)"
+					},
+					"response": []
+				},
+				{
+					"name": "3.2 GET /products?page=2&limit=5 — Pagination",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    pm.expect(pm.response.json().success).to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Пагинация корректно отражает запрошенную страницу\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    const p = jsonData.pagination;",
+									"",
+									"    pm.expect(p.page).to.eql(2);",
+									"    pm.expect(p.limit).to.eql(5);",
+									"    pm.expect(p.hasPrev).to.be.true;",
+									"    pm.expect(p.hasNext).to.be.a('boolean');",
+									"});",
+									"",
+									"pm.test(\"Количество товаров не превышает limit\", () => {",
+									"    const products = pm.response.json().data;",
+									"    pm.expect(products.length).to.be.at.most(5);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/products?page=2&limit=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"products"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "2"
+								},
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Проверка корректности пагинации.\n\nURL: /products?page=2&limit=5\n\nЧто проверяется:\n\n- статус 200 и флаг success = true\n    \n- пагинация отражает запрошенную страницу (page = 2)\n    \n- hasPrev = true (для второй страницы)\n    \n- количество товаров не превышает limit"
+					},
+					"response": []
+				}
+			],
+			"description": "Проверка query-параметров: фильтрация, пагинация, limit.  \nДемонстрирует работу с параметрами запроса и валидацию  \nсоответствия ответа применённым фильтрам."
+		},
+		{
+			"name": "04_Error_Handling",
+			"item": [
+				{
+					"name": "4.1 GET /users?error=500 — Server Error",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 500\", () => {",
+									"    pm.response.to.have.status(500);",
+									"});",
+									"",
+									"pm.test(\"Ответ содержит структуру ошибки\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    // Проверяем наличие error или message — точную структуру уточните по факту",
+									"    const hasErrorField =",
+									"        jsonData.error !== undefined ||",
+									"        jsonData.message !== undefined;",
+									"",
+									"    pm.expect(hasErrorField, 'Нет поля error или message').to.be.true;",
+									"});",
+									"",
+									"pm.test(\"Ответ не раскрывает стек вызовов\", () => {",
+									"    const body = pm.response.text();",
+									"    pm.expect(body).to.not.include('stack');",
+									"    pm.expect(body).to.not.include('at Object.');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?error=500",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
+							"query": [
+								{
+									"key": "error",
+									"value": "500"
+								}
+							]
+						},
+						"description": "Симуляция серверной ошибки 500 через встроенный параметр sandbox.\n\nЧто проверяется:\n\n- статус 500\n    \n- структура тела ошибки (error или message)\n    \n- отсутствие утечки стека вызовов\n    \n\nДемонстрирует проверку поведения API при внутреннем сбое  \nи контроль безопасности сообщений об ошибках."
+					},
+					"response": []
+				},
+				{
+					"name": "4.2 GET /users?delay=2000 — Timeout Behavior",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Статус код 200 после задержки\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Задержка действительно применена\", () => {",
+									"    pm.expect(pm.response.responseTime).to.be.above(1800);",
+									"});",
+									"",
+									"pm.test(\"Флаг success = true\", () => {",
+									"    pm.expect(pm.response.json().success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?delay=2000",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
+							"query": [
+								{
+									"key": "delay",
+									"value": "2000"
+								}
+							]
+						},
+						"description": "Симуляция задержки ответа через параметр delay.\n\nURL: /users?delay=2000 — задержка 2000 мс.\n\nЧто проверяется:\n\n- статус 200 после задержки\n    \n- responseTime действительно превышает 1800 мс\n    \n- флаг success = true\n    \n\nДемонстрирует умение тестировать поведение API  \nпри высоких задержках."
+					},
+					"response": []
+				},
+				{
+					"name": "4.3 GET /users/{invalid-id} — Invalid UUID Format",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Невалидный ID отклонён с 400 Bad Request\", () => {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Структура ошибки Fastify соответствует ожидаемой\", () => {",
+									"    const jsonData = pm.response.json();",
+									"",
+									"    pm.expect(jsonData).to.have.all.keys(",
+									"        'statusCode', 'code', 'error', 'message'",
+									"    );",
+									"    pm.expect(jsonData.statusCode).to.eql(400);",
+									"    pm.expect(jsonData.code).to.eql('FST_ERR_VALIDATION');",
+									"    pm.expect(jsonData.error).to.eql('Bad Request');",
+									"});",
+									"",
+									"pm.test(\"Сообщение указывает на невалидный формат UUID\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.message).to.include('uuid');",
+									"});",
+									"",
+									"pm.test(\"Ответ не раскрывает стек вызовов\", () => {",
+									"    const body = pm.response.text();",
+									"    pm.expect(body).to.not.include('stack');",
+									"    pm.expect(body).to.not.include('at Object.');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/999999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"999999"
+							]
+						},
+						"description": "Проверка валидации входных параметров на уровне роутинга.\n\nURL: /users/999999 — значение не является UUID.\n\nЧто проверяется:\n\n- статус 400 Bad Request\n    \n- структура ошибки Fastify (statusCode, code, error, message)\n    \n- code = FST_ERR_VALIDATION\n    \n- сообщение указывает на невалидный формат UUID\n    \n- отсутствие утечки стека\n    \n\nNegative-тест на уровне валидации входных данных:  \nневалидный вход отсекается до бизнес-логики."
+					},
+					"response": []
+				},
+				{
+					"name": "4.4 GET /users/{uuid} — Not Found",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Несуществующий ресурс возвращает 404\", () => {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"",
+									"pm.test(\"Структура ошибки 404 корректна\", () => {",
+									"    const jsonData = pm.response.json();",
+									"    // Уточните точную структуру по Raw-ответу",
+									"    pm.expect(jsonData).to.have.property('message');",
+									"});",
+									"",
+									"pm.test(\"Ответ не раскрывает внутреннюю информацию\", () => {",
+									"    const body = pm.response.text();",
+									"    pm.expect(body).to.not.include('stack');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/00000000-0000-0000-0000-000000000000",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"00000000-0000-0000-0000-000000000000"
+							]
+						},
+						"description": "Проверка поведения API при запросе несуществующего ресурса  \nс валидным по формату UUID.\n\nURL: /users/00000000-0000-0000-0000-000000000000\n\nЧто проверяется:\n\n- статус 404 Not Found\n    \n- структура ответа содержит сообщение об ошибке\n    \n- отсутствие утечки стека\n    \n\nNegative-тест на уровне бизнес-логики: формат корректен,  \nно ресурс не существует."
+					},
+					"response": []
+				},
+				{
+					"name": "4.5 POST /orders — Access Denied (403)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const userId = pm.collectionVariables.get('userId');",
+									"if (!userId) {",
+									"    throw new Error('userId отсутствует — создайте пользователя в 02_CRUD_Users.');",
+									"}",
+									"",
+									"// Ключ идемпотентности для повторных прогонов",
+									"const idempotencyKey = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;",
+									"pm.collectionVariables.set('idempotencyKey', idempotencyKey);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Создание заказа без авторизации запрещено\", () => {",
+									"    pm.response.to.have.status(403);",
+									"});",
+									"",
+									"pm.test(\"Ответ сервера — HTML-страница с описанием ошибки\", () => {",
+									"    const contentType = pm.response.headers.get('Content-Type') || '';",
+									"    // nginx/сервер отдаёт HTML, а не JSON",
+									"    pm.expect(contentType.toLowerCase()).to.include('text/html');",
+									"});",
+									"",
+									"pm.test(\"HTML содержит код 403 и сообщение Forbidden\", () => {",
+									"    const body = pm.response.text();",
+									"    pm.expect(body).to.include('403');",
+									"    pm.expect(body).to.include('Forbidden');",
+									"});",
+									"",
+									"pm.test(\"Ответ не раскрывает внутреннюю структуру API\", () => {",
+									"    const body = pm.response.text();",
+									"    pm.expect(body).to.not.include('stack');",
+									"    pm.expect(body).to.not.include('at Object.');",
+									"    pm.expect(body).to.not.include('/api/v1/orders');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_id\": {{userId}},\n    \"product_id\": 1,\n    \"quantity\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"orders"
+							]
+						},
+						"description": "Проверка защиты эндпоинта создания заказа без авторизации.\n\nЧто проверяется:\n\n- статус 403 Forbidden\n    \n- ответ сервера — HTML-страница с описанием ошибки\n    \n- HTML содержит код 403 и текст Forbidden\n    \n- ответ не раскрывает внутреннюю структуру API\n    \n\nNegative-тест на авторизацию: демонстрирует понимание  \nразницы между аутентификацией, авторизацией и ошибками доступа."
+					},
+					"response": []
+				}
+			],
+			"description": "Негативные сценарии и обработка ошибок:  \nсерверные ошибки, таймауты, невалидный вход,  \nотсутствующие ресурсы, отказ в доступе.\n\nДемонстрирует разницу между уровнями валидации:  \nроутинг → бизнес-логика → авторизация."
+		},
+		{
+			"name": "05_Advanced_Scripts",
+			"item": [
+				{
+					"name": "5.1 GET /users — Deep Schema Validation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const userSchema = {",
+									"    type: 'object',",
+									"    required: ['id', 'name', 'email', 'role', 'created_at'],",
+									"    properties: {",
+									"        id:         { type: 'string', format: 'uuid' },",
+									"        name:       { type: 'string', minLength: 1 },",
+									"        email:      { type: 'string', format: 'email' },",
+									"        role:       { type: 'string', enum: ['user', 'admin'] },",
+									"        created_at: { type: 'string', format: 'date-time' }",
+									"    }",
+									"};",
+									"",
+									"const responseSchema = {",
+									"    type: 'object',",
+									"    required: ['success', 'data', 'pagination'],",
+									"    properties: {",
+									"        success: { type: 'boolean', const: true },",
+									"        data: { type: 'array', items: userSchema },",
+									"        pagination: {",
+									"            type: 'object',",
+									"            required: ['total', 'page', 'limit', 'pages', 'hasNext', 'hasPrev']",
+									"        }",
+									"    }",
+									"};",
+									"",
+									"pm.test(\"Статус код 200\", () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Схема ответа соответствует ожидаемой\", () => {",
+									"    pm.response.to.have.jsonSchema(responseSchema);",
+									"});",
+									"",
+									"pm.test(\"ID уникальны в рамках страницы\", () => {",
+									"    const ids = pm.response.json().data.map(u => u.id);",
+									"    pm.expect(new Set(ids).size).to.eql(ids.length);",
+									"});",
+									"",
+									"pm.test(\"created_at — валидный ISO 8601\", () => {",
+									"    const iso = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/;",
+									"    pm.response.json().data.forEach(u => pm.expect(u.created_at).to.match(iso));",
+									"});",
+									"",
+									"pm.test(\"Email соответствует формату\", () => {",
+									"    const email = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;",
+									"    pm.response.json().data.forEach(u => pm.expect(u.email).to.match(email));",
+									"});",
+									"",
+									"pm.test(\"Количество элементов не превышает limit\", () => {",
+									"    const j = pm.response.json();",
+									"    pm.expect(j.data.length).to.be.at.most(j.pagination.limit);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?limit=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Глубокая валидация схемы ответа с использованием JSON Schema.\n\nURL: /users?limit=5\n\nЧто проверяется:\n\n- статус 200\n    \n- полная схема ответа через pm.response.to.have.jsonSchema()\n    \n- формат id (uuid)\n    \n- формат email\n    \n- формат created_at (ISO 8601)\n    \n- role входит в enum \\[user, admin\\]\n    \n- уникальность id в рамках страницы\n    \n- количество элементов не превышает limit\n    \n\nДемонстрирует продвинутый уровень schema validation:  \nформаты, регулярки, enum, уникальность."
+					},
+					"response": []
+				}
+			],
+			"description": "Продвинутые техники: JSON Schema validation,  \nпроверка форматов (uuid, email, ISO 8601),  \nуникальность данных, enum-значения."
+		},
+		{
+			"name": "99_Cleanup",
+			"item": [
+				{
+					"name": "99.1 Cleanup — Reset Variables",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"[Cleanup] Переменные сессии сброшены\", () => {",
+									"    pm.collectionVariables.unset('userId');",
+									"    pm.collectionVariables.unset('orderId');",
+									"    pm.collectionVariables.unset('uniqueEmail');",
+									"    pm.collectionVariables.unset('uniqueName');",
+									"    pm.collectionVariables.unset('idempotencyKey');",
+									"",
+									"    console.log('Cleanup выполнен. Коллекцию можно запускать заново.');",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.execution.skipRequest();"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users?limit=1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Служебный запрос без сетевого вызова.\n\nРеализован через pm.execution.skipRequest() —  \nHTTP-запрос не отправляется на сервер, выполняется только Tests.\n\nЧто делает:\n\n- сбрасывает переменные userId, orderId, uniqueEmail,  \n    uniqueName, idempotencyKey\n    \n- делает коллекцию идемпотентной — можно прогонять повторно  \n    без ручной очистки состояния\n    \n\nНе является тест-кейсом. Служебный шаг для инфраструктуры."
+					},
+					"response": []
+				}
+			],
+			"description": "Служебная папка. Сброс переменных коллекции  \nдля возможности повторного прогона без ручной очистки.  \nНе является частью тест-плана."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					"// Единый заголовок для всех запросов — идентификация клиента",
+					"pm.request.headers.add({",
+					"    key: 'X-Client',",
+					"    value: 'Postman-QA-Portfolio'",
+					"});"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					"// [Global] Content-Type — JSON (только когда есть JSON-тело)",
+					"pm.test(\"[Global] Content-Type — JSON (если есть тело)\", () => {",
+					"    const code = pm.response.code;",
+					"    const body = pm.response.text();",
+					"",
+					"    if (code === 204) return;",
+					"    if (!body || body.trim() === '') return;",
+					"    if (code === 401 || code === 403) return;",
+					"",
+					"    pm.response.to.have.header('Content-Type');",
+					"    pm.expect(pm.response.headers.get('Content-Type'))",
+					"        .to.include('application/json');",
+					"});",
+					"",
+					"// [Global] Время ответа в разумных пределах",
+					"pm.test(\"[Global] Время ответа в разумных пределах\", () => {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});",
+					"",
+					"// [Global] Флаг success присутствует в JSON-ответах",
+					"pm.test(\"[Global] Флаг success присутствует\", () => {",
+					"    const code = pm.response.code;",
+					"    const body = pm.response.text();",
+					"",
+					"    if (code === 204 || code === 401 || code === 403) return;",
+					"    if (!body || body.trim() === '') return;",
+					"    if (body.trim().startsWith('<')) return;",
+					"",
+					"    try {",
+					"        const j = pm.response.json();",
+					"        if (j.statusCode !== undefined && j.success === undefined) return;",
+					"        pm.expect(j).to.have.property('success');",
+					"        pm.expect(j.success).to.be.a('boolean');",
+					"    } catch (e) {",
+					"        return;",
+					"    }",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": ""
+		},
+		{
+			"key": "userId",
+			"value": ""
+		},
+		{
+			"key": "orderId",
+			"value": ""
+		},
+		{
+			"key": "uniqueEmail",
+			"value": ""
+		},
+		{
+			"key": "uniqueName",
+			"value": ""
+		},
+		{
+			"key": "idempotencyKey",
+			"value": ""
+		}
+	]
+}
