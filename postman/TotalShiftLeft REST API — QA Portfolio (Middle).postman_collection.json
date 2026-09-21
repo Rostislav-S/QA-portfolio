@@ -780,20 +780,19 @@
 					"response": []
 				},
 				{
-					"name": "4.5 POST /orders — Access Denied (403)",
+					"name": "4.5 POST /orders — Invalid product_id Format",
 					"event": [
 						{
 							"listen": "prerequest",
 							"script": {
 								"exec": [
-									"const userId = pm.collectionVariables.get('userId');",
-									"if (!userId) {",
-									"    throw new Error('userId отсутствует — создайте пользователя в 02_CRUD_Users.');",
-									"}",
-									"",
-									"// Ключ идемпотентности для повторных прогонов",
-									"const idempotencyKey = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;",
-									"pm.collectionVariables.set('idempotencyKey', idempotencyKey);"
+									"// Проверяем, что userId установлен в предыдущих запросах",
+									"if (!pm.collectionVariables.get('userId')) {",
+									"    throw new Error(",
+									"        'Переменная userId не установлена. ' +",
+									"        'Запустите коллекцию с начала — начиная с 02_CRUD_Users.'",
+									"    );",
+									"}"
 								],
 								"type": "text/javascript",
 								"packages": {},
@@ -804,27 +803,32 @@
 							"listen": "test",
 							"script": {
 								"exec": [
-									"pm.test(\"Создание заказа без авторизации запрещено\", () => {",
-									"    pm.response.to.have.status(403);",
+									"pm.test(\"Невалидный product_id отклонён с 400\", () => {",
+									"    pm.response.to.have.status(400);",
 									"});",
 									"",
-									"pm.test(\"Ответ сервера — HTML-страница с описанием ошибки\", () => {",
-									"    const contentType = pm.response.headers.get('Content-Type') || '';",
-									"    // nginx/сервер отдаёт HTML, а не JSON",
-									"    pm.expect(contentType.toLowerCase()).to.include('text/html');",
+									"pm.test(\"Флаг success = false или отсутствует\", () => {",
+									"    const data = pm.response.json();",
+									"    // Fastify-ошибки не содержат success — проверяем через error/message",
+									"    const isErrorResponse =",
+									"        data.success === false ||",
+									"        data.error !== undefined ||",
+									"        data.message !== undefined;",
+									"",
+									"    pm.expect(isErrorResponse, 'Ответ должен быть ошибочным').to.be.true;",
 									"});",
 									"",
-									"pm.test(\"HTML содержит код 403 и сообщение Forbidden\", () => {",
-									"    const body = pm.response.text();",
-									"    pm.expect(body).to.include('403');",
-									"    pm.expect(body).to.include('Forbidden');",
+									"pm.test(\"Сообщение указывает на product_id и формат uuid\", () => {",
+									"    const data = pm.response.json();",
+									"    pm.expect(data).to.have.property('message');",
+									"    pm.expect(data.message).to.include('product_id');",
+									"    pm.expect(data.message.toLowerCase()).to.include('uuid');",
 									"});",
 									"",
-									"pm.test(\"Ответ не раскрывает внутреннюю структуру API\", () => {",
-									"    const body = pm.response.text();",
+									"pm.test(\"Стек вызовов не раскрыт\", () => {",
+									"    const body = pm.response.text().toLowerCase();",
 									"    pm.expect(body).to.not.include('stack');",
-									"    pm.expect(body).to.not.include('at Object.');",
-									"    pm.expect(body).to.not.include('/api/v1/orders');",
+									"    pm.expect(body).to.not.include('at object.');",
 									"});"
 								],
 								"type": "text/javascript",
@@ -833,15 +837,12 @@
 							}
 						}
 					],
-					"protocolProfileBehavior": {
-						"disableBodyPruning": true
-					},
 					"request": {
-						"method": "GET",
+						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"user_id\": {{userId}},\n    \"product_id\": 1,\n    \"quantity\": 2\n}",
+							"raw": "{\n    \"user_id\": \"{{userId}}\",\n    \"product_id\": \"not-a-uuid\",\n    \"quantity\": 1\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -857,7 +858,7 @@
 								"orders"
 							]
 						},
-						"description": "Проверка защиты эндпоинта создания заказа без авторизации.\n\nЧто проверяется:\n\n- статус 403 Forbidden\n    \n- ответ сервера — HTML-страница с описанием ошибки\n    \n- HTML содержит код 403 и текст Forbidden\n    \n- ответ не раскрывает внутреннюю структуру API\n    \n\nNegative-тест на авторизацию: демонстрирует понимание  \nразницы между аутентификацией, авторизацией и ошибками доступа."
+						"description": "Negative-тест: невалидный формат product_id в теле запроса.\n\nAPI использует Fastify-валидацию схемы тела и отсекает запрос  \nдо бизнес-логики: product_id должен быть UUID-строкой.\n\nЧто проверяется:\n\n- статус 400 Bad Request\n    \n- сообщение указывает на product_id и формат uuid\n    \n- отсутствие утечки стека вызовов\n    \n\nАналог 4.3 — только для POST и поля product_id.  \nДемонстрирует понимание порядка валидации в API:  \nсначала формат входных данных, потом бизнес-логика."
 					},
 					"response": []
 				}
